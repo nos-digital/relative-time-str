@@ -8,7 +8,7 @@
 # Rust and Cargo
 **/*.rs.bk
 */target
-#Cargo.lock
+Cargo.lock
 debug
 target
 
