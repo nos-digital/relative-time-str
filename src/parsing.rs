@@ -8,10 +8,11 @@ macro_rules! bail {
     };
 }
 
-macro_rules! ensure {
-    ($if:expr, $err:expr) => {
-        if !$if {
-            return Some(Err($err));
+macro_rules! ensure_ok {
+    ($value:expr) => {
+        match $value {
+            Ok(value) => value,
+            Err(err) => return Some(Err(err)),
         }
     };
 }
@@ -149,101 +150,131 @@ impl<'s> StepIterator<'s> {
             tokens: TokenIterator::new(text),
         }
     }
+
+    pub fn next_operator(&mut self) -> Result<Operator> {
+        match self.tokens.next() {
+            Some(Ok(Token::Operator(_, operator))) => Ok(operator),
+            Some(Ok(Token::Value(index, _))) => Err(Error::InvalidFormat(
+                index,
+                TokenType::Operator,
+                TokenType::Value,
+            )),
+            Some(Ok(Token::Unit(index, _))) => Err(Error::InvalidFormat(
+                index,
+                TokenType::Operator,
+                TokenType::Unit,
+            )),
+            Some(Err(err)) => Err(err),
+            None => Err(Error::InvalidFormat(
+                self.tokens.text.len(),
+                TokenType::Operator,
+                TokenType::None,
+            )),
+        }
+    }
+    pub fn next_value(&mut self) -> Result<Value> {
+        match self.tokens.next() {
+            Some(Ok(Token::Value(_, value))) => Ok(value),
+            Some(Ok(Token::Operator(index, _))) => Err(Error::InvalidFormat(
+                index,
+                TokenType::Value,
+                TokenType::Operator,
+            )),
+            Some(Ok(Token::Unit(index, _))) => Err(Error::InvalidFormat(
+                index,
+                TokenType::Value,
+                TokenType::Unit,
+            )),
+            Some(Err(err)) => Err(err),
+            None => Err(Error::InvalidFormat(
+                self.tokens.text.len(),
+                TokenType::Value,
+                TokenType::None,
+            )),
+        }
+    }
+    pub fn next_unit(&mut self) -> Result<Unit> {
+        match self.tokens.next() {
+            Some(Ok(Token::Unit(_, unit))) => Ok(unit),
+            Some(Ok(Token::Operator(index, _))) => Err(Error::InvalidFormat(
+                index,
+                TokenType::Unit,
+                TokenType::Operator,
+            )),
+            Some(Ok(Token::Value(index, _))) => Err(Error::InvalidFormat(
+                index,
+                TokenType::Unit,
+                TokenType::Value,
+            )),
+            Some(Err(err)) => Err(err),
+            None => Err(Error::InvalidFormat(
+                self.tokens.text.len(),
+                TokenType::Unit,
+                TokenType::None,
+            )),
+        }
+    }
 }
 
 impl Iterator for StepIterator<'_> {
     type Item = Result<Step>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let was_first = self.first;
-        self.first = false;
-
-        let mut operator = if was_first { Some(Operator::Add) } else { None };
-        let mut value = None;
-
-        loop {
-            match self.tokens.next() {
-                Some(Err(err)) => bail!(err),
-                Some(Ok(Token::Value(index, v))) => {
-                    ensure!(
-                        operator.is_some() && operator != Some(Operator::Floor),
-                        Error::InvalidFormat(index, TokenType::Operator, TokenType::Value)
-                    );
-                    ensure!(
-                        value.is_none(),
-                        Error::InvalidFormat(index, TokenType::Unit, TokenType::Value)
-                    );
-                    value = Some(v);
+        Some(if !self.first {
+            match self.next_operator() {
+                Err(err) => Err(err),
+                Ok(Operator::Floor) => {
+                    let unit = ensure_ok!(self.next_unit());
+                    Ok(Step::Floor(unit))
                 }
-                Some(Ok(Token::Operator(index, o))) => {
-                    // Allow +- syntax
-                    if operator == Some(Operator::Add) && o == Operator::Sub {
-                        operator = None;
-                    }
-                    ensure!(
-                        operator != Some(Operator::Floor),
-                        Error::InvalidFormat(index, TokenType::Unit, TokenType::Operator)
-                    );
-                    ensure!(
-                        operator.is_none(),
-                        Error::InvalidFormat(index, TokenType::Value, TokenType::Operator)
-                    );
-                    ensure!(
-                        value.is_none(),
-                        Error::InvalidFormat(index, TokenType::Unit, TokenType::Operator)
-                    );
-                    operator = Some(o);
+                Ok(Operator::Add) => {
+                    let value = ensure_ok!(self.next_value());
+                    let unit = ensure_ok!(self.next_unit());
+                    Ok(Step::Add(value, unit))
                 }
-                Some(Ok(Token::Unit(index, unit))) => {
-                    let Some(operator) = operator else {
-                        bail!(Error::InvalidFormat(
-                            index,
-                            TokenType::Operator,
-                            TokenType::Unit,
-                        ));
-                    };
-
-                    return Some(Ok(match operator {
-                        Operator::Add => {
-                            let Some(value) = value else {
-                                bail!(Error::InvalidFormat(
-                                    index,
-                                    TokenType::Value,
-                                    TokenType::Unit,
-                                ));
-                            };
-
-                            Step::Add(value, unit)
-                        }
-                        Operator::Sub => {
-                            let Some(value) = value else {
-                                bail!(Error::InvalidFormat(
-                                    index,
-                                    TokenType::Value,
-                                    TokenType::Unit,
-                                ));
-                            };
-
-                            Step::Sub(value, unit)
-                        }
-                        Operator::Floor => {
-                            // value is already checked in the Token::Value branch
-                            Step::Floor(unit)
-                        }
-                    }));
-                }
-                None => {
-                    ensure!(
-                        operator.is_none() || was_first,
-                        Error::InvalidFormat(
-                            self.tokens.text.len(),
-                            TokenType::Value,
-                            TokenType::None,
-                        )
-                    );
-                    return None;
+                Ok(Operator::Sub) => {
+                    let value = ensure_ok!(self.next_value());
+                    let unit = ensure_ok!(self.next_unit());
+                    Ok(Step::Sub(value, unit))
                 }
             }
-        }
+        } else {
+            self.first = false;
+
+            match self.tokens.next() {
+                Some(Err(err)) => Err(err),
+                Some(Ok(Token::Operator(index, operator))) => match operator {
+                    Operator::Add => {
+                        let value = ensure_ok!(self.next_value());
+                        let unit = ensure_ok!(self.next_unit());
+                        Ok(Step::Add(value, unit))
+                    }
+                    Operator::Sub => {
+                        let value = ensure_ok!(self.next_value());
+                        let unit = ensure_ok!(self.next_unit());
+                        Ok(Step::Sub(value, unit))
+                    }
+                    Operator::Floor => Err(Error::InvalidFormat(
+                        index,
+                        TokenType::Operator,
+                        TokenType::Operator,
+                    )),
+                },
+                Some(Ok(Token::Value(_, value))) => {
+                    let unit = ensure_ok!(self.next_unit());
+                    Ok(Step::Add(value, unit))
+                }
+                Some(Ok(Token::Unit(index, _))) => Err(Error::InvalidFormat(
+                    index,
+                    TokenType::Operator,
+                    TokenType::Unit,
+                )),
+                None => Err(Error::InvalidFormat(
+                    self.tokens.text.len(),
+                    TokenType::Operator,
+                    TokenType::None,
+                )),
+            }
+        })
     }
 }
