@@ -221,22 +221,39 @@ impl Iterator for StepIterator<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         Some(if !self.first {
-            match self.next_operator() {
-                Err(err) => Err(err),
-                Ok(Operator::Floor) => {
-                    let unit = ensure_ok!(self.next_unit());
-                    Ok(Step::Floor(unit))
-                }
-                Ok(Operator::Add) => {
-                    let value = ensure_ok!(self.next_value());
-                    let unit = ensure_ok!(self.next_unit());
-                    Ok(Step::Add(value, unit))
-                }
-                Ok(Operator::Sub) => {
-                    let value = ensure_ok!(self.next_value());
-                    let unit = ensure_ok!(self.next_unit());
-                    Ok(Step::Sub(value, unit))
-                }
+            match self.tokens.next() {
+                Some(Err(err)) => Err(err),
+                Some(Ok(Token::Operator(_, operator))) => match operator {
+                    Operator::Add => {
+                        let value = ensure_ok!(self.next_value());
+                        let unit = ensure_ok!(self.next_unit());
+                        Ok(Step::Add(value, unit))
+                    }
+                    Operator::Sub => {
+                        let value = ensure_ok!(self.next_value());
+                        let unit = ensure_ok!(self.next_unit());
+                        Ok(Step::Sub(value, unit))
+                    }
+                    Operator::Floor => {
+                        let unit = ensure_ok!(self.next_unit());
+                        Ok(Step::Floor(unit))
+                    }
+                },
+                Some(Ok(Token::Value(index, _))) => Err(Error::InvalidFormat(
+                    index,
+                    TokenType::Operator,
+                    TokenType::Value,
+                )),
+                Some(Ok(Token::Unit(index, _))) => Err(Error::InvalidFormat(
+                    index,
+                    TokenType::Operator,
+                    TokenType::Unit,
+                )),
+                None => Err(Error::InvalidFormat(
+                    self.tokens.text.len(),
+                    TokenType::Operator,
+                    TokenType::None,
+                )),
             }
         } else {
             self.first = false;
