@@ -5,32 +5,29 @@ pub mod time_components;
 pub mod time_constants;
 
 pub use error::{Error, Result};
-use parsing::{next_step, Step, Unit, Value};
+use parsing::{Step, StepIterator, Unit, Value};
 pub use time_components::MathConvertable;
 use time_components::TimeComponents;
 
-pub fn parse_str<T: MathConvertable>(s: &str) -> Result<T> {
+pub fn parse_str<T: MathConvertable>(text: &str) -> Result<T> {
     // Only grab the now timestamps once, as this might be expensive and we
     // want `now-now` to always resolve to `0`.
     let now = T::now();
 
-    {
-        let s = s.trim();
-        if s == "n" || s == "now" {
-            // shortcut so we don't have to transform two-ways
-            return Ok(now);
-        }
+    if text.trim() == "now" {
+        // shortcut so we don't have to transform two-ways
+        return Ok(now);
     }
 
-    let mut iter = s.char_indices().peekable();
-    let mut first = true;
+    let now = now.to_components();
+
     let mut time = TimeComponents::ZERO;
 
-    while let Some(step) = next_step(s, &mut iter, &mut first)? {
-        match step {
+    for step in StepIterator::new(text) {
+        match step? {
             Step::Add(value, unit) => match value {
                 Value::Now => {
-                    time += now.to_components();
+                    time += now.clone();
                 }
                 Value::Number(value) => match unit {
                     Unit::Year => time.add_years(value),
@@ -44,7 +41,7 @@ pub fn parse_str<T: MathConvertable>(s: &str) -> Result<T> {
             },
             Step::Sub(value, unit) => match value {
                 Value::Now => {
-                    time -= now.to_components();
+                    time -= now.clone();
                 }
                 Value::Number(value) => match unit {
                     Unit::Year => time.sub_years(value),
