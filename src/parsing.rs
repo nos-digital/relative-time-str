@@ -1,10 +1,12 @@
+use std::{iter::Peekable, str::CharIndices};
+
 use crate::{Error, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Token {
-    Value(Value),
-    Operator(Operator),
-    Unit(Unit),
+    Value(usize, Value),
+    Operator(usize, Operator),
+    Unit(usize, Unit),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -56,96 +58,129 @@ pub enum Step {
     Floor(Unit),
 }
 
-pub fn next_token(s: &mut &str) -> Result<Option<Token>> {
-    // Ignore any whitespace
-    *s = s.trim_start();
+pub fn next_token(full: &str, s: &mut Peekable<CharIndices<'_>>) -> Result<Option<Token>> {
+    let token = loop {
+        let Some((index, c)) = s.next() else {
+            return Ok(None);
+        };
 
-    if s.is_empty() {
-        return Ok(None);
-    }
-
-    let Some(c) = s.chars().next() else {
-        return Ok(None);
+        break match c {
+            '0'..='9' => {
+                let mut index_end = index + 1;
+                while matches!(s.peek(), Some((_, '0'..='9'))) {
+                    index_end += 1;
+                    s.next();
+                }
+                let number = full[index..index_end]
+                    .parse::<u32>()
+                    .map_err(|err| Error::InvalidNumber(full[index..index_end].to_string(), err))?;
+                Token::Value(index, Value::Number(number))
+            }
+            'n' => {
+                if matches!(s.peek(), Some((_, 'o'))) {
+                    let (index, _) = s.next().unwrap();
+                    match s.next() {
+                        Some((_, 'w')) => {}
+                        Some((index, c)) => return Err(Error::InvalidCharacter(index, c)),
+                        None => return Err(Error::InvalidCharacter(index + 1, '\u{3}')), // 3 is EOT
+                    }
+                }
+                Token::Value(index, Value::Now)
+            }
+            '/' => Token::Operator(index, Operator::Floor),
+            '+' => Token::Operator(index, Operator::Add),
+            '-' => Token::Operator(index, Operator::Sub),
+            'y' => Token::Unit(index, Unit::Year),
+            'M' => Token::Unit(index, Unit::Month),
+            'w' => Token::Unit(index, Unit::Week),
+            'd' => Token::Unit(index, Unit::Day),
+            'h' => Token::Unit(index, Unit::Hour),
+            'm' => Token::Unit(index, Unit::Minute),
+            c if c.is_whitespace() => continue,
+            c => return Err(Error::InvalidCharacter(index, c)),
+        };
     };
-
-    let mut token = match c {
-        '0'..='9' => Token::Value(Value::Number(0)),
-        'n' => Token::Value(Value::Now),
-        '/' => Token::Operator(Operator::Floor),
-        '+' => Token::Operator(Operator::Add),
-        '-' => Token::Operator(Operator::Sub),
-        'y' => Token::Unit(Unit::Year),
-        'M' => Token::Unit(Unit::Month),
-        'w' => Token::Unit(Unit::Week),
-        'd' => Token::Unit(Unit::Day),
-        'h' => Token::Unit(Unit::Hour),
-        'm' => Token::Unit(Unit::Minute),
-        c => return Err(Error::InvalidCharacter(c)),
-    };
-
-    match &mut token {
-        Token::Value(Value::Number(number)) => {
-            let index = s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
-            let (digits, rest) = s.split_at(index);
-            *number = digits.parse().expect("checked in find");
-            *s = rest;
-        }
-        Token::Value(Value::Now) => {
-            *s = &s[1..];
-            *s = s.strip_prefix("ow").unwrap_or(s);
-        }
-        _ => {
-            *s = &s[1..];
-        }
-    }
 
     Ok(Some(token))
 }
 
-pub fn next_step(s: &mut &str, first: &mut bool) -> Result<Option<Step>> {
+pub fn next_step(
+    full: &str,
+    s: &mut Peekable<CharIndices<'_>>,
+    first: &mut bool,
+) -> Result<Option<Step>> {
     let is_first = *first;
     *first = false;
     let mut operator = if is_first { Some(Operator::Add) } else { None };
     let mut value = None;
 
     loop {
-        match next_token(s)? {
-            Some(Token::Value(v)) => {
+        match next_token(full, s)? {
+            Some(Token::Value(index, v)) => {
                 if operator.is_none() || operator == Some(Operator::Floor) {
-                    return Err(Error::InvalidFormat(TokenType::Operator, TokenType::Value));
+                    return Err(Error::InvalidFormat(
+                        index,
+                        TokenType::Operator,
+                        TokenType::Value,
+                    ));
                 }
                 if operator == Some(Operator::Floor) || value.is_some() {
-                    return Err(Error::InvalidFormat(TokenType::Unit, TokenType::Value));
+                    return Err(Error::InvalidFormat(
+                        index,
+                        TokenType::Unit,
+                        TokenType::Value,
+                    ));
                 }
                 value = Some(v);
             }
-            Some(Token::Operator(o)) => {
+            Some(Token::Operator(index, o)) => {
                 if operator.is_some() && !(operator == Some(Operator::Add) && o == Operator::Sub) {
                     if operator == Some(Operator::Floor) {
-                        return Err(Error::InvalidFormat(TokenType::Unit, TokenType::Operator));
+                        return Err(Error::InvalidFormat(
+                            index,
+                            TokenType::Unit,
+                            TokenType::Operator,
+                        ));
                     } else {
-                        return Err(Error::InvalidFormat(TokenType::Value, TokenType::Operator));
+                        return Err(Error::InvalidFormat(
+                            index,
+                            TokenType::Value,
+                            TokenType::Operator,
+                        ));
                     }
                 }
                 if value.is_some() {
-                    return Err(Error::InvalidFormat(TokenType::Unit, TokenType::Operator));
+                    return Err(Error::InvalidFormat(
+                        index,
+                        TokenType::Unit,
+                        TokenType::Operator,
+                    ));
                 }
                 operator = Some(o);
             }
-            Some(Token::Unit(unit)) => {
-                let operator =
-                    operator.ok_or(Error::InvalidFormat(TokenType::Operator, TokenType::Unit))?;
+            Some(Token::Unit(index, unit)) => {
+                let operator = operator.ok_or(Error::InvalidFormat(
+                    index,
+                    TokenType::Operator,
+                    TokenType::Unit,
+                ))?;
 
                 return Ok(Some(match operator {
                     Operator::Add => {
-                        let value =
-                            value.ok_or(Error::InvalidFormat(TokenType::Value, TokenType::Unit))?;
+                        let value = value.ok_or(Error::InvalidFormat(
+                            index,
+                            TokenType::Value,
+                            TokenType::Unit,
+                        ))?;
 
                         Step::Add(value, unit)
                     }
                     Operator::Sub => {
-                        let value =
-                            value.ok_or(Error::InvalidFormat(TokenType::Value, TokenType::Unit))?;
+                        let value = value.ok_or(Error::InvalidFormat(
+                            index,
+                            TokenType::Value,
+                            TokenType::Unit,
+                        ))?;
 
                         Step::Sub(value, unit)
                     }
@@ -157,7 +192,11 @@ pub fn next_step(s: &mut &str, first: &mut bool) -> Result<Option<Step>> {
             }
             None => {
                 if operator.is_some() && !is_first {
-                    return Err(Error::InvalidFormat(TokenType::Value, TokenType::None));
+                    return Err(Error::InvalidFormat(
+                        full.len(),
+                        TokenType::Value,
+                        TokenType::None,
+                    ));
                 }
                 return Ok(None);
             }

@@ -9,22 +9,24 @@ use parsing::{next_step, Step, Unit, Value};
 pub use time_components::MathConvertable;
 use time_components::TimeComponents;
 
-pub fn parse_str<T: MathConvertable>(mut s: &str) -> Result<T> {
-    s = s.trim();
-
+pub fn parse_str<T: MathConvertable>(s: &str) -> Result<T> {
     // Only grab the now timestamps once, as this might be expensive and we
     // want `now-now` to always resolve to `0`.
     let now = T::now();
 
-    if s == "n" || s == "now" {
-        // shortcut so we don't have to transform two-ways
-        return Ok(now);
+    {
+        let s = s.trim();
+        if s == "n" || s == "now" {
+            // shortcut so we don't have to transform two-ways
+            return Ok(now);
+        }
     }
 
+    let mut iter = s.char_indices().peekable();
     let mut first = true;
     let mut time = TimeComponents::ZERO;
 
-    while let Some(step) = next_step(&mut s, &mut first)? {
+    while let Some(step) = next_step(s, &mut iter, &mut first)? {
         match step {
             Step::Add(value, unit) => match value {
                 Value::Now => {
