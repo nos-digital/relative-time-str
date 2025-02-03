@@ -91,50 +91,47 @@ impl Iterator for TokenIterator<'_> {
     type Item = Result<Token>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            let (index, c) = self.chars.next()?;
-
-            return Some(Ok(match c {
-                '0'..='9' => {
-                    let mut index_end = index + 1;
-                    while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
-                        index_end += 1;
-                        self.chars.next();
-                    }
-                    match self.text[index..index_end].parse::<u32>() {
-                        Ok(number) => Token::Value(index, Value::Number(number)),
-                        Err(err) => bail!(Error::InvalidNumber(
-                            self.text[index..index_end].to_string(),
-                            err
-                        )),
-                    }
+        let (index, c) = self.chars.next()?;
+        Some(Ok(match c {
+            '0'..='9' => {
+                let mut index_end = index + 1;
+                while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                    index_end += 1;
+                    self.chars.next();
                 }
-                'n' => {
-                    match self.chars.next() {
-                        Some((_, 'o')) => {}
-                        Some((index, c)) => bail!(Error::InvalidCharacter(index, c)),
-                        None => bail!(Error::InvalidCharacter(index + 1, '\u{3}')), // 3 is EOT
-                    }
-                    match self.chars.next() {
-                        Some((_, 'w')) => {}
-                        Some((index, c)) => bail!(Error::InvalidCharacter(index, c)),
-                        None => bail!(Error::InvalidCharacter(index + 1, '\u{3}')), // 3 is EOT
-                    }
-                    Token::Value(index, Value::Now)
+                match self.text[index..index_end].parse::<u32>() {
+                    Ok(number) => Token::Value(index, Value::Number(number)),
+                    Err(err) => bail!(Error::InvalidNumber(
+                        self.text[index..index_end].to_string(),
+                        err
+                    )),
                 }
-                '/' => Token::Operator(index, Operator::Floor),
-                '+' => Token::Operator(index, Operator::Add),
-                '-' => Token::Operator(index, Operator::Sub),
-                'y' => Token::Unit(index, Unit::Year),
-                'M' => Token::Unit(index, Unit::Month),
-                'w' => Token::Unit(index, Unit::Week),
-                'd' => Token::Unit(index, Unit::Day),
-                'h' => Token::Unit(index, Unit::Hour),
-                'm' => Token::Unit(index, Unit::Minute),
-                c if c.is_whitespace() => continue,
-                c => bail!(Error::InvalidCharacter(index, c)),
-            }));
-        }
+            }
+            'n' => {
+                match self.chars.next() {
+                    Some((_, 'o')) => {}
+                    Some((index, c)) => bail!(Error::InvalidCharacter(index, c)),
+                    None => bail!(Error::InvalidCharacter(index + 1, '\u{3}')), // 3 is EOT
+                }
+                match self.chars.next() {
+                    Some((_, 'w')) => {}
+                    Some((index, c)) => bail!(Error::InvalidCharacter(index, c)),
+                    None => bail!(Error::InvalidCharacter(index + 1, '\u{3}')), // 3 is EOT
+                }
+                Token::Value(index, Value::Now)
+            }
+            '/' => Token::Operator(index, Operator::Floor),
+            '+' => Token::Operator(index, Operator::Add),
+            '-' => Token::Operator(index, Operator::Sub),
+            'y' => Token::Unit(index, Unit::Year),
+            'M' => Token::Unit(index, Unit::Month),
+            'w' => Token::Unit(index, Unit::Week),
+            'd' => Token::Unit(index, Unit::Day),
+            'h' => Token::Unit(index, Unit::Hour),
+            'm' => Token::Unit(index, Unit::Minute),
+            c if c.is_whitespace() => return self.next(),
+            c => bail!(Error::InvalidCharacter(index, c)),
+        }))
     }
 }
 
@@ -152,19 +149,18 @@ impl<'s> StepIterator<'s> {
     }
 
     pub fn next_value(&mut self) -> Result<Value> {
-        match self.tokens.next() {
-            Some(Ok(Token::Value(_, value))) => Ok(value),
-            Some(Ok(Token::Operator(index, _))) => Err(Error::InvalidFormat(
+        match self.tokens.next().transpose()? {
+            Some(Token::Value(_, value)) => Ok(value),
+            Some(Token::Operator(index, _)) => Err(Error::InvalidFormat(
                 index,
                 TokenType::Value,
                 TokenType::Operator,
             )),
-            Some(Ok(Token::Unit(index, _))) => Err(Error::InvalidFormat(
+            Some(Token::Unit(index, _)) => Err(Error::InvalidFormat(
                 index,
                 TokenType::Value,
                 TokenType::Unit,
             )),
-            Some(Err(err)) => Err(err),
             None => Err(Error::InvalidFormat(
                 self.tokens.text.len(),
                 TokenType::Value,
@@ -173,19 +169,18 @@ impl<'s> StepIterator<'s> {
         }
     }
     pub fn next_unit(&mut self) -> Result<Unit> {
-        match self.tokens.next() {
-            Some(Ok(Token::Unit(_, unit))) => Ok(unit),
-            Some(Ok(Token::Operator(index, _))) => Err(Error::InvalidFormat(
+        match self.tokens.next().transpose()? {
+            Some(Token::Unit(_, unit)) => Ok(unit),
+            Some(Token::Operator(index, _)) => Err(Error::InvalidFormat(
                 index,
                 TokenType::Unit,
                 TokenType::Operator,
             )),
-            Some(Ok(Token::Value(index, _))) => Err(Error::InvalidFormat(
+            Some(Token::Value(index, _)) => Err(Error::InvalidFormat(
                 index,
                 TokenType::Unit,
                 TokenType::Value,
             )),
-            Some(Err(err)) => Err(err),
             None => Err(Error::InvalidFormat(
                 self.tokens.text.len(),
                 TokenType::Unit,
