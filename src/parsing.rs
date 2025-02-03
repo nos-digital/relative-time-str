@@ -2,6 +2,20 @@ use std::{iter::Peekable, str::CharIndices};
 
 use crate::{Error, Result};
 
+macro_rules! bail {
+    ($err:expr) => {
+        return Some(Err($err))
+    };
+}
+
+macro_rules! ensure {
+    ($if:expr, $err:expr) => {
+        if !$if {
+            return Some(Err($err));
+        }
+    };
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Token {
     Value(usize, Value),
@@ -79,45 +93,46 @@ impl Iterator for TokenIterator<'_> {
         loop {
             let (index, c) = self.chars.next()?;
 
-            return Some(match c {
+            return Some(Ok(match c {
                 '0'..='9' => {
                     let mut index_end = index + 1;
                     while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
                         index_end += 1;
                         self.chars.next();
                     }
-                    self.text[index..index_end]
-                        .parse::<u32>()
-                        .map(|number| Token::Value(index, Value::Number(number)))
-                        .map_err(|err| {
-                            Error::InvalidNumber(self.text[index..index_end].to_string(), err)
-                        })
+                    match self.text[index..index_end].parse::<u32>() {
+                        Ok(number) => Token::Value(index, Value::Number(number)),
+                        Err(err) => bail!(Error::InvalidNumber(
+                            self.text[index..index_end].to_string(),
+                            err
+                        )),
+                    }
                 }
                 'n' => {
                     match self.chars.next() {
                         Some((_, 'o')) => {}
-                        Some((index, c)) => return Some(Err(Error::InvalidCharacter(index, c))),
-                        None => return Some(Err(Error::InvalidCharacter(index + 1, '\u{3}'))), // 3 is EOT
+                        Some((index, c)) => bail!(Error::InvalidCharacter(index, c)),
+                        None => bail!(Error::InvalidCharacter(index + 1, '\u{3}')), // 3 is EOT
                     }
                     match self.chars.next() {
                         Some((_, 'w')) => {}
-                        Some((index, c)) => return Some(Err(Error::InvalidCharacter(index, c))),
-                        None => return Some(Err(Error::InvalidCharacter(index + 1, '\u{3}'))), // 3 is EOT
+                        Some((index, c)) => bail!(Error::InvalidCharacter(index, c)),
+                        None => bail!(Error::InvalidCharacter(index + 1, '\u{3}')), // 3 is EOT
                     }
-                    Ok(Token::Value(index, Value::Now))
+                    Token::Value(index, Value::Now)
                 }
-                '/' => Ok(Token::Operator(index, Operator::Floor)),
-                '+' => Ok(Token::Operator(index, Operator::Add)),
-                '-' => Ok(Token::Operator(index, Operator::Sub)),
-                'y' => Ok(Token::Unit(index, Unit::Year)),
-                'M' => Ok(Token::Unit(index, Unit::Month)),
-                'w' => Ok(Token::Unit(index, Unit::Week)),
-                'd' => Ok(Token::Unit(index, Unit::Day)),
-                'h' => Ok(Token::Unit(index, Unit::Hour)),
-                'm' => Ok(Token::Unit(index, Unit::Minute)),
+                '/' => Token::Operator(index, Operator::Floor),
+                '+' => Token::Operator(index, Operator::Add),
+                '-' => Token::Operator(index, Operator::Sub),
+                'y' => Token::Unit(index, Unit::Year),
+                'M' => Token::Unit(index, Unit::Month),
+                'w' => Token::Unit(index, Unit::Week),
+                'd' => Token::Unit(index, Unit::Day),
+                'h' => Token::Unit(index, Unit::Hour),
+                'm' => Token::Unit(index, Unit::Minute),
                 c if c.is_whitespace() => continue,
-                c => return Some(Err(Error::InvalidCharacter(index, c))),
-            });
+                c => bail!(Error::InvalidCharacter(index, c)),
+            }));
         }
     }
 }
@@ -148,81 +163,65 @@ impl Iterator for StepIterator<'_> {
 
         loop {
             match self.tokens.next() {
-                Some(Err(err)) => {
-                    return Some(Err(err));
-                }
+                Some(Err(err)) => bail!(err),
                 Some(Ok(Token::Value(index, v))) => {
-                    if operator.is_none() || operator == Some(Operator::Floor) {
-                        return Some(Err(Error::InvalidFormat(
-                            index,
-                            TokenType::Operator,
-                            TokenType::Value,
-                        )));
-                    }
-                    if operator == Some(Operator::Floor) || value.is_some() {
-                        return Some(Err(Error::InvalidFormat(
-                            index,
-                            TokenType::Unit,
-                            TokenType::Value,
-                        )));
-                    }
+                    ensure!(
+                        operator.is_some() && operator != Some(Operator::Floor),
+                        Error::InvalidFormat(index, TokenType::Operator, TokenType::Value)
+                    );
+                    ensure!(
+                        value.is_none(),
+                        Error::InvalidFormat(index, TokenType::Unit, TokenType::Value)
+                    );
                     value = Some(v);
                 }
                 Some(Ok(Token::Operator(index, o))) => {
-                    if operator.is_some()
-                        && !(operator == Some(Operator::Add) && o == Operator::Sub)
-                    {
-                        if operator == Some(Operator::Floor) {
-                            return Some(Err(Error::InvalidFormat(
-                                index,
-                                TokenType::Unit,
-                                TokenType::Operator,
-                            )));
-                        } else {
-                            return Some(Err(Error::InvalidFormat(
-                                index,
-                                TokenType::Value,
-                                TokenType::Operator,
-                            )));
-                        }
+                    // Allow +- syntax
+                    if operator == Some(Operator::Add) && o == Operator::Sub {
+                        operator = None;
                     }
-                    if value.is_some() {
-                        return Some(Err(Error::InvalidFormat(
-                            index,
-                            TokenType::Unit,
-                            TokenType::Operator,
-                        )));
-                    }
+                    ensure!(
+                        operator != Some(Operator::Floor),
+                        Error::InvalidFormat(index, TokenType::Unit, TokenType::Operator)
+                    );
+                    ensure!(
+                        operator.is_none(),
+                        Error::InvalidFormat(index, TokenType::Value, TokenType::Operator)
+                    );
+                    ensure!(
+                        value.is_none(),
+                        Error::InvalidFormat(index, TokenType::Unit, TokenType::Operator)
+                    );
                     operator = Some(o);
                 }
                 Some(Ok(Token::Unit(index, unit))) => {
                     let Some(operator) = operator else {
-                        return Some(Err(Error::InvalidFormat(
+                        bail!(Error::InvalidFormat(
                             index,
                             TokenType::Operator,
                             TokenType::Unit,
-                        )));
+                        ));
                     };
 
                     return Some(Ok(match operator {
                         Operator::Add => {
                             let Some(value) = value else {
-                                return Some(Err(Error::InvalidFormat(
+                                bail!(Error::InvalidFormat(
                                     index,
                                     TokenType::Value,
                                     TokenType::Unit,
-                                )));
+                                ));
                             };
 
                             Step::Add(value, unit)
                         }
                         Operator::Sub => {
                             let Some(value) = value else {
-                                return Some(Err(Error::InvalidFormat(
+                                bail!(Error::InvalidFormat(
                                     index,
                                     TokenType::Value,
                                     TokenType::Unit,
-                                )));
+                                ));
                             };
 
                             Step::Sub(value, unit)
@@ -234,13 +233,14 @@ impl Iterator for StepIterator<'_> {
                     }));
                 }
                 None => {
-                    if operator.is_some() && !was_first {
-                        return Some(Err(Error::InvalidFormat(
+                    ensure!(
+                        operator.is_none() || was_first,
+                        Error::InvalidFormat(
                             self.tokens.text.len(),
                             TokenType::Value,
                             TokenType::None,
-                        )));
-                    }
+                        )
+                    );
                     return None;
                 }
             }

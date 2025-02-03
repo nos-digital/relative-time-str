@@ -14,7 +14,7 @@ pub fn parse_str<T: MathConvertable>(text: &str) -> Result<T> {
     // want `now-now` to always resolve to `0`.
     let now = T::now();
 
-    if text.trim() == "now" {
+    if text.trim().trim_start_matches('+') == "now" {
         // shortcut so we don't have to transform two-ways
         return Ok(now);
     }
