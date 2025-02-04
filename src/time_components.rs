@@ -355,7 +355,7 @@ impl std::ops::SubAssign for TimeComponents {
     }
 }
 
-pub trait MathConvertable: Sized {
+pub trait HasTimeComponents: Sized {
     fn now() -> Self;
     fn to_components(&self) -> TimeComponents;
     fn from_components(components: TimeComponents) -> Result<Self>;

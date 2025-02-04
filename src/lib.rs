@@ -6,10 +6,10 @@ pub mod time_constants;
 
 pub use error::{Error, Result};
 use parsing::{Step, StepIterator, Unit, Value};
-pub use time_components::MathConvertable;
+pub use time_components::HasTimeComponents;
 use time_components::TimeComponents;
 
-pub fn parse_str<T: MathConvertable>(text: &str) -> Result<T> {
+pub fn parse_str<T: HasTimeComponents>(text: &str) -> Result<T> {
     // Only grab the now timestamps once, as this might be expensive and we
     // want `now-now` to always resolve to `0`.
     let now = T::now();
