@@ -1,10 +1,7 @@
-use crate::{
-    time_constants::{
-        DAYS_IN_COMMON_MONTH, DAYS_IN_LEAP_MONTH, DAYS_IN_YEAR_COMMON, DAYS_IN_YEAR_LEAP,
-        DAYS_PER_WEEK, DAYS_SINCE_COMMON_MONTH, DAYS_SINCE_LEAP_MONTH, MONTHS_PER_YEAR,
-        NANOS_PER_SECOND, SECONDS_PER_DAY, SECONDS_PER_HOUR, SECONDS_PER_MINUTE,
-    },
-    Result,
+use crate::time_constants::{
+    DAYS_IN_COMMON_MONTH, DAYS_IN_LEAP_MONTH, DAYS_IN_YEAR_COMMON, DAYS_IN_YEAR_LEAP,
+    DAYS_PER_WEEK, DAYS_SINCE_COMMON_MONTH, DAYS_SINCE_LEAP_MONTH, MONTHS_PER_YEAR,
+    NANOS_PER_SECOND, SECONDS_PER_DAY, SECONDS_PER_HOUR, SECONDS_PER_MINUTE,
 };
 
 #[derive(Debug, Clone)]
@@ -353,10 +350,4 @@ impl std::ops::SubAssign for TimeComponents {
             self.years -= years;
         }
     }
-}
-
-pub trait HasTimeComponents: Sized {
-    fn now() -> Self;
-    fn to_components(&self) -> TimeComponents;
-    fn from_components(components: TimeComponents) -> Result<Self>;
 }

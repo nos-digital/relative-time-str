@@ -10,5 +10,6 @@ thiserror = "2.0.11"
 
 [features]
 default = []
-chrono-local = ["dep:chrono", "chrono/clock"]
-chrono-utc = ["dep:chrono", "chrono/now"]
+chrono = ["dep:chrono"]
+chrono-local = ["chrono", "chrono/clock"]
+chrono-utc = ["chrono", "chrono/now"]

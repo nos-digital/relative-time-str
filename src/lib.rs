@@ -6,20 +6,32 @@ pub mod time_constants;
 
 pub use error::{Error, Result};
 use parsing::{Step, StepIterator, Unit, Value};
-pub use time_components::HasTimeComponents;
 use time_components::TimeComponents;
 
-pub fn parse_str<T: HasTimeComponents>(text: &str) -> Result<T> {
+pub trait HasNow {
+    fn now() -> Self;
+}
+
+pub trait HasTimeComponents: Sized {
+    type AdditionalData;
+
+    fn to_components(&self) -> (TimeComponents, Self::AdditionalData);
+    fn from_components(components: TimeComponents, data: Self::AdditionalData) -> Result<Self>;
+}
+
+pub fn parse_str<T: HasTimeComponents + HasNow>(text: &str) -> Result<T> {
     // Only grab the now timestamps once, as this might be expensive and we
     // want `now-now` to always resolve to `0`.
-    let now = T::now();
+    parse_str_with_now(text, T::now())
+}
 
+pub fn parse_str_with_now<T: HasTimeComponents>(text: &str, now: T) -> Result<T> {
     if text.trim().trim_start_matches('+') == "now" {
         // shortcut so we don't have to transform two-ways
         return Ok(now);
     }
 
-    let now = now.to_components();
+    let (now, data) = now.to_components();
 
     let mut time = TimeComponents::ZERO;
 
@@ -65,5 +77,5 @@ pub fn parse_str<T: HasTimeComponents>(text: &str) -> Result<T> {
         }
     }
 
-    T::from_components(time)
+    T::from_components(time, data)
 }
