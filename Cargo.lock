@@ -141,6 +141,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "relative-time-str"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "thiserror",
+]
+
+[[package]]
 name = "rustversion"
 version = "1.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -181,14 +189,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "time-string-math"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "thiserror",
 ]
 
 [[package]]
