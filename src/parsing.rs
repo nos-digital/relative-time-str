@@ -110,13 +110,13 @@ impl Iterator for TokenIterator<'_> {
             'n' => {
                 match self.chars.next() {
                     Some((_, 'o')) => {}
-                    Some((index, c)) => bail!(Error::InvalidCharacter(index, c)),
-                    None => bail!(Error::InvalidCharacter(index + 1, '\u{3}')), // 3 is EOT
+                    Some((index, c)) => bail!(Error::UnexpectedCharacter(index, c)),
+                    None => bail!(Error::UnexpectedCharacter(index + 1, '\u{3}')), // 3 is EOT
                 }
                 match self.chars.next() {
                     Some((_, 'w')) => {}
-                    Some((index, c)) => bail!(Error::InvalidCharacter(index, c)),
-                    None => bail!(Error::InvalidCharacter(index + 1, '\u{3}')), // 3 is EOT
+                    Some((index, c)) => bail!(Error::UnexpectedCharacter(index, c)),
+                    None => bail!(Error::UnexpectedCharacter(index + 1, '\u{3}')), // 3 is EOT
                 }
                 Token::Value(index, Value::Now)
             }
@@ -130,7 +130,7 @@ impl Iterator for TokenIterator<'_> {
             'h' => Token::Unit(index, Unit::Hour),
             'm' => Token::Unit(index, Unit::Minute),
             c if c.is_whitespace() => return self.next(),
-            c => bail!(Error::InvalidCharacter(index, c)),
+            c => bail!(Error::UnexpectedCharacter(index, c)),
         }))
     }
 }
@@ -239,5 +239,92 @@ impl Iterator for StepIterator<'_> {
                 TokenType::None,
             )),
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn parse(input: &str) -> Result<Vec<Token>, Error> {
+        TokenIterator::new(input).collect::<Result<Vec<_>, _>>()
+    }
+
+    macro_rules! assert_parse_into_tokens {
+        ($string:expr, $vector:expr) => {
+            assert_eq!(parse($string).unwrap(), $vector);
+        };
+    }
+
+    #[test]
+    fn now_add_year() {
+        assert_parse_into_tokens!(
+            "now+1y",
+            vec![
+                Token::Value(0, Value::Now),
+                Token::Operator(3, Operator::Add),
+                Token::Value(4, Value::Number(1)),
+                Token::Unit(5, Unit::Year),
+            ]
+        );
+    }
+
+    #[test]
+    fn now_sub_day() {
+        assert_parse_into_tokens!(
+            "now-5d",
+            vec![
+                Token::Value(0, Value::Now),
+                Token::Operator(3, Operator::Sub),
+                Token::Value(4, Value::Number(5)),
+                Token::Unit(5, Unit::Day),
+            ]
+        );
+    }
+
+    #[test]
+    fn now_floor_week() {
+        assert_parse_into_tokens!(
+            "now/w",
+            vec![
+                Token::Value(0, Value::Now),
+                Token::Operator(3, Operator::Floor),
+                Token::Unit(4, Unit::Week),
+            ]
+        );
+    }
+
+    #[test]
+    fn very_large_number() {
+        assert_parse_into_tokens!(
+           "now+4294967295y",
+            vec![
+                Token::Value(0, Value::Now),
+                Token::Operator(3, Operator::Add),
+                Token::Value(4, Value::Number(u32::MAX)),
+                Token::Unit(14, Unit::Year),
+            ]
+        );
+    }
+
+    #[test]
+    fn large_number_error() {
+        let res = parse("now+4294967297y");
+        assert!(matches!(res, Err(Error::InvalidNumber(_, _))));
+    }
+
+    #[test]
+    fn invalid_input() {
+        let res = parse("(´･ω･`)");
+        assert!(matches!(res, Err(Error::UnexpectedCharacter(0, '('))));
+    }
+
+    #[test]
+    fn no_input() {
+        // TODO: this test asserts current behavior that might not be desirable?
+        assert_parse_into_tokens!(
+           "",
+            vec![]
+        );
     }
 }

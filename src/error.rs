@@ -5,7 +5,7 @@ pub type Result<T, E = Error> = core::result::Result<T, E>;
 #[derive(Debug, thiserror::Error, Clone, Eq, PartialEq)]
 pub enum Error {
     #[error("unexpected character '{1}' at position {0}")]
-    InvalidCharacter(usize, char),
+    UnexpectedCharacter(usize, char),
     #[error("number {0} is not valid: {1}")]
     InvalidNumber(String, std::num::ParseIntError),
     #[error("the computed date value is invalid")]
