@@ -77,6 +77,8 @@ impl TimeComponents {
 
     #[inline]
     pub fn add_years(&mut self, years: u32) {
+        // QUESTION: is a panic here preferable over something like saturating add, or returning a Result?
+        // If the `years` variable is user input that means a user could crash the application?
         let years: i32 = years.try_into().expect("year is unreasonably high");
         self.years += years;
     }

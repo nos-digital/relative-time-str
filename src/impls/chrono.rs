@@ -57,6 +57,7 @@ mod tests {
     use super::*;
     use crate::time_components::TimeComponents;
     use chrono::{DateTime, FixedOffset, Utc};
+    use crate::parse_str;
 
     // Tests that the components can be converted into a DateTime object with a Timezone and back
     // to components without any information changing. Also asserts that the resulting DateTime
