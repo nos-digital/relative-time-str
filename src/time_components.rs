@@ -4,7 +4,9 @@ use crate::time_constants::{
     NANOS_PER_SECOND, SECONDS_PER_DAY, SECONDS_PER_HOUR, SECONDS_PER_MINUTE,
 };
 
-#[derive(Debug, Clone)]
+// TODO: this type needs some documentation. One thing that needs to be clarified is that (i think)
+//       this type is always in UTC time?
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct TimeComponents {
     /// The number of years relative to CE.
     pub years: i32,
@@ -48,26 +50,27 @@ impl TimeComponents {
         }
     }
 
+    /// NOTE: this function returns the month number starting from 0
     #[inline]
     #[allow(clippy::as_conversions)] // known to never fail
     pub fn split_months_days(&self) -> (u32, u32) {
         let (_, _, day_count_sum) = self.days_in_year();
 
-        let month_in_year = day_count_sum.partition_point(|sum| *sum < self.days) as u32 - 1;
+        let month_in_year = day_count_sum.partition_point(|sum| *sum <= self.days) as u32 - 1;
         let day_in_month = self.days - day_count_sum[month_in_year as usize];
 
         (month_in_year, day_in_month)
     }
 
     #[inline]
-    pub fn split_hour_minute_second(&self) -> (u32, u32, u32) {
+    pub fn split_hours_minutes_seconds(&self) -> (u32, u32, u32) {
         let mut seconds = self.seconds;
 
         let hours = seconds / SECONDS_PER_HOUR;
         seconds -= hours * SECONDS_PER_HOUR;
 
         let minutes = seconds / SECONDS_PER_MINUTE;
-        seconds -= minutes * SECONDS_PER_HOUR;
+        seconds -= minutes * SECONDS_PER_MINUTE;
 
         (hours, minutes, seconds)
     }
