@@ -327,4 +327,38 @@ mod test {
             vec![]
         );
     }
+
+    #[test]
+    fn now_minus_now() {
+        assert_parse_into_tokens!(
+           "now-now",
+            vec![
+                Token::Value(0, Value::Now),
+                Token::Operator(3, Operator::Sub),
+                Token::Value(4, Value::Now),
+            ]
+        );
+    }
+
+    #[test]
+    fn cursed() {
+        // The tokenizer aggressively doesn't care about the structure of the input (as it should)
+        assert_parse_into_tokens!(
+           "now+-//nownow1nowmMm",
+            vec![
+                Token::Value(0, Value::Now),
+                Token::Operator(3, Operator::Add),
+                Token::Operator(4, Operator::Sub),
+                Token::Operator(5, Operator::Floor),
+                Token::Operator(6, Operator::Floor),
+                Token::Value(7, Value::Now),
+                Token::Value(10, Value::Now),
+                Token::Value(13, Value::Number(1)),
+                Token::Value(14, Value::Now),
+                Token::Unit(17, Unit::Minute),
+                Token::Unit(18, Unit::Month),
+                Token::Unit(19, Unit::Minute),
+            ]
+        );
+    }
 }

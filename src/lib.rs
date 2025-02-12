@@ -20,7 +20,7 @@ pub trait HasTimeComponents: Sized {
 }
 
 pub fn parse_str<T: HasTimeComponents + HasNow>(text: &str) -> Result<T> {
-    // Only grab the now timestamps once, as this might be expensive and we
+    // Only grab the now timestamps once, as this might be expensive, and we
     // want `now-now` to always resolve to `0`.
     parse_str_with_now(text, T::now())
 }
