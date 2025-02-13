@@ -16,14 +16,12 @@ impl<Tz: chrono::TimeZone> HasTimeComponents for DateTime<Tz> {
 
         let mut comp = TimeComponents {
             years: datetime.year(),
-            days: datetime.day0(),
+            days: datetime.ordinal0(),
             seconds: datetime.hour() * SECONDS_PER_HOUR
                 + datetime.minute() * SECONDS_PER_MINUTE
                 + datetime.second(),
             nanos: datetime.nanosecond(),
         };
-
-        comp.days += comp.days_in_year().2[datetime.month0() as usize];
 
         (comp, self.offset().clone())
     }
