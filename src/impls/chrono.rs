@@ -14,12 +14,10 @@ impl<Tz: chrono::TimeZone> HasTimeComponents for DateTime<Tz> {
     fn to_components(&self) -> (TimeComponents, Self::AdditionalData) {
         let datetime = self.naive_utc();
 
-        let mut comp = TimeComponents {
+        let comp = TimeComponents {
             years: datetime.year(),
             days: datetime.ordinal0(),
-            seconds: datetime.hour() * SECONDS_PER_HOUR
-                + datetime.minute() * SECONDS_PER_MINUTE
-                + datetime.second(),
+            seconds: datetime.num_seconds_from_midnight(),
             nanos: datetime.nanosecond(),
         };
 
