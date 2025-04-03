@@ -1,0 +1,17 @@
+# IDEs
+.idea
+.vscode
+
+# OS files
+*.pdb
+
+# Rust and Cargo
+**/*.rs.bk
+*/target
+#Cargo.lock
+debug
+target
+
+# Other
+.env
+app.log.*
