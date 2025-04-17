@@ -1,3 +1,6 @@
+# Download git dependencies through the cli, allowing us for easier private repo usage.
+net.git-fetch-with-cli = true
+
 # Using `target.'cfg'` because the three ways of setting rustflags are mutually exclusive:
 # https://doc.rust-lang.org/cargo/reference/config.html#buildrustflags
 # `target` at least makes it so that array elements are _joined_ with values set elsewhere,
