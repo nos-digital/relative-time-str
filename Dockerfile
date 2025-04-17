@@ -10,6 +10,8 @@ RUN apk add --no-cache \
 # Adding this compiler feature disables static linking to libgcc. This is
 # required, as static linking against the musl lib has poorer performance.
 ENV RUSTFLAGS="-C target-feature=-crt-static"
+# This flag is needed to enable cargo fetch to function properly.
+ENV CARGO_HOME="/app/.cargo"
 
 FROM base AS builder
 
