@@ -43,47 +43,50 @@ impl Iterator for Lexer<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let (index, c) = self.chars.next()?;
-        Some(Ok((index, match c {
-            '0'..='9' => {
-                let mut index_end = index + 1;
-                while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
-                    index_end += 1;
-                    self.chars.next();
+        Some(Ok((
+            index,
+            match c {
+                '0'..='9' => {
+                    let mut index_end = index + 1;
+                    while matches!(self.chars.peek(), Some((_, '0'..='9'))) {
+                        index_end += 1;
+                        self.chars.next();
+                    }
+                    match self.text[index..index_end].parse::<u32>() {
+                        Ok(number) => Token::Value(number),
+                        Err(err) => bail!(Error::InvalidNumber(
+                            self.text[index..index_end].to_string(),
+                            err
+                        )),
+                    }
                 }
-                match self.text[index..index_end].parse::<u32>() {
-                    Ok(number) => Token::Value(number),
-                    Err(err) => bail!(Error::InvalidNumber(
-                        self.text[index..index_end].to_string(),
-                        err
-                    )),
+                'n' => {
+                    match self.chars.next() {
+                        Some((_, 'o')) => {}
+                        Some((index, c)) => bail!(Error::UnexpectedCharacter(index, c)),
+                        None => bail!(Error::UnexpectedCharacter(index + 1, '\u{3}')), // 3 is EOT
+                    }
+                    match self.chars.next() {
+                        Some((_, 'w')) => {}
+                        Some((index, c)) => bail!(Error::UnexpectedCharacter(index, c)),
+                        None => bail!(Error::UnexpectedCharacter(index + 1, '\u{3}')), // 3 is EOT
+                    }
+                    Token::Now
                 }
-            }
-            'n' => {
-                match self.chars.next() {
-                    Some((_, 'o')) => {}
-                    Some((index, c)) => bail!(Error::UnexpectedCharacter(index, c)),
-                    None => bail!(Error::UnexpectedCharacter(index + 1, '\u{3}')), // 3 is EOT
-                }
-                match self.chars.next() {
-                    Some((_, 'w')) => {}
-                    Some((index, c)) => bail!(Error::UnexpectedCharacter(index, c)),
-                    None => bail!(Error::UnexpectedCharacter(index + 1, '\u{3}')), // 3 is EOT
-                }
-                Token::Now
-            }
-            '/' => Token::Floor,
-            '+' => Token::Add,
-            '-' => Token::Sub,
-            'y' => Token::Year,
-            'M' => Token::Month,
-            'w' => Token::Week,
-            'd' => Token::Day,
-            'h' => Token::Hour,
-            'm' => Token::Minute,
-            's' => Token::Second,
-            c if c.is_whitespace() => return self.next(),
-            c => bail!(Error::UnexpectedCharacter(index, c)),
-        })))
+                '/' => Token::Floor,
+                '+' => Token::Add,
+                '-' => Token::Sub,
+                'y' => Token::Year,
+                'M' => Token::Month,
+                'w' => Token::Week,
+                'd' => Token::Day,
+                'h' => Token::Hour,
+                'm' => Token::Minute,
+                's' => Token::Second,
+                c if c.is_whitespace() => return self.next(),
+                c => bail!(Error::UnexpectedCharacter(index, c)),
+            },
+        )))
     }
 }
 

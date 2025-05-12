@@ -1,8 +1,8 @@
 use chrono::{DateTime, Datelike, Days, DurationRound, Months, TimeDelta};
 
 use crate::{
+    MONTHS_PER_YEAR, RelativeTime,
     error::{Error, Result},
-    RelativeTime, MONTHS_PER_YEAR,
 };
 
 impl<Tz: chrono::TimeZone> RelativeTime for DateTime<Tz> {

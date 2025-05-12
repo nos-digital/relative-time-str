@@ -125,3 +125,105 @@ pub fn parse_str_with_now<T: RelativeTime>(text: &str, now: T) -> Result<T> {
 
     Ok(time)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::{Local, NaiveDateTime, TimeZone};
+
+    macro_rules! test_input_string {
+        ($input:expr, $output:expr) => {
+            let naive_datetime =
+                NaiveDateTime::parse_from_str("2023-08-21T05:40:00", "%Y-%m-%dT%H:%M:%S")
+                    .expect("input date time invalid");
+            let local_datetime = Local
+                .from_local_datetime(&naive_datetime)
+                .single()
+                .expect("input date time ambiguous");
+
+            let res = parse_str_with_now($input, local_datetime).expect("input date time invalid");
+
+            assert_eq!(format!("{}", res.format("%Y-%m-%dT%H:%M:%S")), $output);
+        };
+    }
+
+    #[test]
+    fn literal_now() {
+        test_input_string!("now", "2023-08-21T05:40:00");
+    }
+
+    #[test]
+    fn unary_now() {
+        test_input_string!("+now", "2023-08-21T05:40:00");
+        test_input_string!("  +    now", "2023-08-21T05:40:00");
+    }
+
+    #[test]
+    fn now_plus_days() {
+        test_input_string!("now + 1d", "2023-08-22T05:40:00");
+        test_input_string!("now + 3d", "2023-08-24T05:40:00");
+        test_input_string!("now + 30d", "2023-09-20T05:40:00");
+    }
+
+    #[test]
+    fn now_minus_hours() {
+        test_input_string!("now - 2h", "2023-08-21T03:40:00");
+    }
+
+    #[test]
+    fn now_plus_1w() {
+        test_input_string!("now + 1w", "2023-08-28T05:40:00");
+    }
+
+    #[test]
+    fn now_plus_2mo() {
+        test_input_string!("now + 2M", "2023-10-21T05:40:00");
+    }
+
+    #[test]
+    fn now_minus_1y() {
+        test_input_string!("now - 1y", "2022-08-21T05:40:00");
+    }
+
+    #[test]
+    fn now_with_multiple_offsets() {
+        test_input_string!("now + 1d - 2h + 30m", "2023-08-22T04:10:00");
+    }
+
+    #[test]
+    fn now_with_whitespace_variants() {
+        test_input_string!("now+1d", "2023-08-22T05:40:00");
+        test_input_string!("now    +    1d", "2023-08-22T05:40:00");
+        test_input_string!("now+   1d", "2023-08-22T05:40:00");
+    }
+
+    #[test]
+    fn test_leading_zeroes() {
+        test_input_string!("now + 00015s", "2023-08-21T05:40:15");
+    }
+
+    #[test]
+    fn now_with_with_overflow_addition() {
+        test_input_string!("now + 90s", "2023-08-21T05:41:30");
+        test_input_string!("now + 61m", "2023-08-21T06:41:00");
+    }
+
+    #[test]
+    fn now_zero_offset() {
+        test_input_string!("now + 0s", "2023-08-21T05:40:00");
+        test_input_string!("now - 0d", "2023-08-21T05:40:00");
+    }
+
+    #[test]
+    fn now_negative_offsets_combined() {
+        test_input_string!("now - 1d - 2h", "2023-08-20T03:40:00");
+    }
+
+    #[test]
+    fn complex_expression() {
+        test_input_string!(
+            "now + 1y - 1M + 3w - 2d + 4h - 30m + 15s",
+            "2024-08-09T09:10:15"
+        );
+    }
+}
