@@ -1,9 +1,9 @@
 use std::iter::Peekable;
 
 use crate::{
+    Error, Result,
     error::TokenType,
     lexer::{Lexer, Token},
-    Error, Result,
 };
 
 macro_rules! ensure_ok {
