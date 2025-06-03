@@ -1,23 +1,24 @@
 ARG RUST_VERSION=1.86.0
 ARG ALPINE_VERSION=3.21
 
-FROM rust:${RUST_VERSION}-alpine${ALPINE_VERSION} AS base
+FROM default-route-openshift-image-registry.apps.cluster.chp5-prod.npocloud.nl/nos/rust-builder:${RUST_VERSION}-alpine${ALPINE_VERSION} AS base
 
-RUN apk add --no-cache \
-  # musl-dev is needed so the rust compiler can link against musl's libc implementation
-  musl-dev
+ARG AWS_ROLE_ARN
+ARG AWS_WEB_IDENTITY_TOKEN_FILE
+ARG SCCACHE_BUCKET
+ARG SCCACHE_REGION
 
-# Adding this compiler feature disables static linking to libgcc. This is
-# required, as static linking against the musl lib has poorer performance.
-ENV RUSTFLAGS="-C target-feature=-crt-static"
-# This flag is needed to enable cargo fetch to function properly.
-ENV CARGO_HOME="/app/.cargo"
+ENV AWS_ROLE_ARN="${AWS_ROLE_ARN}"
+ENV AWS_WEB_IDENTITY_TOKEN_FILE="${AWS_WEB_IDENTITY_TOKEN_FILE}"
+ENV SCCACHE_BUCKET="${SCCACHE_BUCKET}"
+ENV SCCACHE_REGION="${SCCACHE_REGION}"
 
 FROM base AS builder
 
 WORKDIR /app
 COPY ./ /app
 
+ENV RUSTC_WRAPPER="sccache"
 RUN cargo build --release --locked
 
 FROM alpine:${ALPINE_VERSION} AS dist
