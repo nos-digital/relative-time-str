@@ -85,8 +85,10 @@ rustflags = [
     # BEGIN - NOS standard lints
     "-Wclippy::as_conversions",
     "-Wclippy::as_pointer_underscore",
+    "-Wclippy::doc_comment_double_space_linebreaks",
     "-Wclippy::doc_include_without_cfg",
     "-Wclippy::get_unwrap",
+    "-Wclippy::manual_midpoint",
     "-Wclippy::needless_pass_by_value",
     "-Wclippy::non_send_fields_in_send_ty",
     "-Wclippy::print_stderr",
@@ -94,6 +96,7 @@ rustflags = [
     "-Wclippy::ref_option",
     "-Wclippy::suboptimal_flops",
     "-Wclippy::trivially_copy_pass_by_ref",
+    "-Wclippy::unnecessary_debug_formatting",
     "-Wclippy::unnecessary_literal_bound",
     "-Wclippy::unnecessary_self_imports",
     "-Wclippy::use_self",
