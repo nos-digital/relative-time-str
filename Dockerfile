@@ -5,11 +5,13 @@ FROM default-route-openshift-image-registry.apps.cluster.chp5-prod.npocloud.nl/n
 
 ARG AWS_ROLE_ARN
 ARG AWS_WEB_IDENTITY_TOKEN_FILE
+ARG RUSTC_WRAPPER
 ARG SCCACHE_BUCKET
 ARG SCCACHE_REGION
 
 ENV AWS_ROLE_ARN="${AWS_ROLE_ARN}"
 ENV AWS_WEB_IDENTITY_TOKEN_FILE="${AWS_WEB_IDENTITY_TOKEN_FILE}"
+ENV RUSTC_WRAPPER="${RUSTC_WRAPPER}"
 ENV SCCACHE_BUCKET="${SCCACHE_BUCKET}"
 ENV SCCACHE_REGION="${SCCACHE_REGION}"
 
@@ -18,8 +20,7 @@ FROM base AS builder
 WORKDIR /app
 COPY ./ /app
 
-ENV RUSTC_WRAPPER="sccache"
-RUN cargo build --release --locked
+RUN cargo build --bins --release --locked
 
 FROM alpine:${ALPINE_VERSION} AS dist
 
