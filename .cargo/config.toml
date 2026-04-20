@@ -92,6 +92,7 @@ rustflags = [
     "-Wclippy::unnecessary_debug_formatting",
     "-Wclippy::unnecessary_literal_bound",
     "-Wclippy::unnecessary_self_imports",
+    "-Wclippy::unnecessary_trailing_comma",
     "-Wclippy::unnested_or_patterns",
     "-Wclippy::unused_self",
     "-Wclippy::use_self",
