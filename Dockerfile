@@ -20,7 +20,7 @@ FROM base AS builder
 WORKDIR /app
 COPY ./ /app
 
-RUN cargo build --bins --release --locked
+RUN cargo build --workspace --release --locked
 
 FROM alpine:${ALPINE_VERSION} AS dist
 
