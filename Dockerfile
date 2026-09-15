@@ -1,4 +1,4 @@
-ARG RUST_VERSION=1.96.0
+ARG RUST_VERSION=1.98.1
 ARG ALPINE_VERSION=3.24
 
 FROM default-route-openshift-image-registry.apps.cluster.chp5-prod.npocloud.nl/nos/rust-builder:${RUST_VERSION}-alpine${ALPINE_VERSION} AS base
