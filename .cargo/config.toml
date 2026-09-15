@@ -46,7 +46,6 @@ rustflags = [
     "-Wclippy::imprecise_flops",
     "-Wclippy::indexing_slicing",
     "-Wclippy::inefficient_to_string",
-    "-Wclippy::inline_modules",
     "-Wclippy::inline_trait_bounds",
     "-Wclippy::invalid_upcast_comparisons",
     "-Wclippy::large_digit_groups",
