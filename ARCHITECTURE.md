@@ -38,6 +38,7 @@ and understanding the overall organization and separation of concerns.
 │   └── utils.rs              # Utility code
 ├── .env                      # Environment variables for the configuration, ignored by git
 ├── .env.example              # Example environment variables for the configuration
+├── .github/                  # GitHub Actions CI (calls nos-github-actions' rust-ci workflow)
 ├── .gitignore                # Specifies intentionally untracked files to ignore
 ├── ARCHITECTURE.md           # This document
 ├── build.rs                  # Pre-build triggers, such as setting the git SHA
@@ -47,10 +48,9 @@ and understanding the overall organization and separation of concerns.
 ├── clippy.toml               # Additional clippy configuration
 ├── CODEOWNERS                # Github repository ownership configuration
 ├── deny.toml                 # Settings for cargo-deny
-├── Dockerfile                # Dockerfile for backend deployment
 ├── format_unstable.sh        # A helper script to format the source code with additional settings
 ├── README.md                 # Project overview and quick start guide
-├── rust-toolchain.toml       # Toolchain channel pinning and preferences
+├── runtime.Dockerfile        # Runtime image for GitHub Actions (CI adds the binaries)
 ├── rustfmt.toml              # Formatting settings used by rustfmt
 └── rustfmt-unstable.toml     # Unstable formatting settings used by rustfmt
 ```

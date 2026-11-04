@@ -1,5 +1,5 @@
 [graph]
-targets = ["x86_64-unknown-linux-musl"]
+targets = ["x86_64-unknown-linux-gnu"]
 all-features = true
 
 [licenses]

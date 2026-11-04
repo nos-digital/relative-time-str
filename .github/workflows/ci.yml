@@ -1,0 +1,32 @@
+name: CI
+
+# The shared Rust CI/CD from nos-github-actions: checks, clippy and tests, the
+# image built once, and that same image deployed to acc (deploy-acc label, or
+# master) and then prod (master).
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled]
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    # The `labeled` trigger is for deploy-acc; other labels don't need a new run.
+    if: github.event.action != 'labeled' || github.event.label.name == 'deploy-acc'
+    uses: nos-digital/nos-github-actions/.github/workflows/rust-ci.yml@v1
+    with:
+      rust-version: "1.99.1" # the same as `rust-version` in Cargo.toml
+      binaries: my_compiled_binary
+      image-name: my-app
+      kustomize-base-dir: openshift/apps/backend/my-app
+      # More options (MariaDB, sqlx, ...) are in nos-github-actions' README;
+      # nos-image-repository is a filled-in example.
+    # Only what the workflow needs, rather than `secrets: inherit`.
+    secrets:
+      CHP5_PROD_PULL_TOKEN: ${{ secrets.CHP5_PROD_PULL_TOKEN }}
+      GHACTIONS_RO_FACILITATOR_APP_KEY: ${{ secrets.GHACTIONS_RO_FACILITATOR_APP_KEY }}
+      COMMON_INFRA_DEPLOY_KEY: ${{ secrets.COMMON_INFRA_DEPLOY_KEY }}
+      SLACK_BOT_KEY: ${{ secrets.SLACK_BOT_KEY }}

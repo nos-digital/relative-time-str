@@ -1,0 +1,9 @@
+version: 2
+updates:
+  # Digest bumps for the pinned base images in runtime.Dockerfile.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "🐳"
