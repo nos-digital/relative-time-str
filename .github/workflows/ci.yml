@@ -24,9 +24,4 @@ jobs:
       kustomize-base-dir: openshift/apps/backend/my-app
       # More options (MariaDB, sqlx, ...) are in nos-github-actions' README;
       # nos-image-repository is a filled-in example.
-    # Only what the workflow needs, rather than `secrets: inherit`.
-    secrets:
-      CHP5_PROD_PULL_TOKEN: ${{ secrets.CHP5_PROD_PULL_TOKEN }}
-      GHACTIONS_RO_FACILITATOR_APP_KEY: ${{ secrets.GHACTIONS_RO_FACILITATOR_APP_KEY }}
-      COMMON_INFRA_DEPLOY_KEY: ${{ secrets.COMMON_INFRA_DEPLOY_KEY }}
-      SLACK_BOT_KEY: ${{ secrets.SLACK_BOT_KEY }}
+    secrets: inherit
