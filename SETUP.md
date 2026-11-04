@@ -25,30 +25,29 @@ rust-version = "1.99.1" # hetzelfde als `rust-version` in .github/workflows/ci.y
 ```
 
 # GitHub Actions
-Repositories bouwen en deployen met GitHub Actions. `runtime.Dockerfile` is alleen
-de runtime image (distroless glibc) waar CI de binaries in zet; het compileren
-gebeurt in CI.
+Repositories bouwen en deployen met GitHub Actions. De `Dockerfile` is alleen de
+runtime image (distroless glibc) waar CI de binaries in zet; het compileren gebeurt
+in CI. Sectie 4 van `ARCHITECTURE.md` legt uit hoe dat werkt.
 
 Een repository die nog op Tekton draait, verhuist zo:
-1. Merge `toolchain/master` zoals altijd (zie hierboven). Dat brengt
-   `runtime.Dockerfile` en `.github/` mee.
-2. Zet in `runtime.Dockerfile` je eigen binaries in plaats van `my_compiled_binary`.
-   Voeg runtime-libraries toe als je die nodig hebt; het commentaar bovenin legt
-   uit hoe.
+1. Merge `toolchain/master` zoals altijd (zie hierboven). Dat brengt de nieuwe
+   `Dockerfile` en `.github/` mee. Je oude Tekton-`Dockerfile` geeft daarbij een
+   conflict: neem de versie uit de toolchain.
+2. Zet in de `Dockerfile` je eigen binaries in plaats van `my_compiled_binary`.
+   Voeg runtime-libraries toe als je die nodig hebt; sectie 4 van `ARCHITECTURE.md`
+   legt uit hoe.
 3. Vul in `.github/workflows/ci.yml` je binaries, image-naam en common-infra map in
    (`my_compiled_binary`, `my-app`). Die roept de herbruikbare
    [rust-ci workflow](https://github.com/nos-digital/nos-github-actions#rust-ciyml)
    van nos-github-actions aan. Alle opties (MariaDB, sqlx, ...) staan in de README
    van nos-github-actions; nos-image-repository is een ingevuld voorbeeld.
 
-   De base image in `runtime.Dockerfile` is op digest gepind;
+   De base image in de `Dockerfile` is op digest gepind;
    `.github/dependabot.yml` laat Dependabot daar wekelijks updates voor voorstellen.
    `.github/workflows/claude-review.yml` doet een korte review door Claude op elke
    nieuwe PR en heeft het `ANTHROPIC_API_KEY` secret nodig.
-4. De toolchain-merge verwijdert de oude Tekton-`Dockerfile`; heb je die zelf
-   aangepast, verwijder hem dan met de hand. Verwijder in nos-common-infra de
-   Tekton-pipelines van de repository (de ArgoCD Application in `tekton/app/argocd-apps/` en
-   `tekton/app/backend/<repo>/`). Vervang een verplichte `Tekton` status check in
+4. Verwijder in nos-common-infra de Tekton-pipelines van de repository (de ArgoCD
+   Application in `tekton/app/argocd-apps/` en `tekton/app/backend/<repo>/`). Vervang een verplichte `Tekton` status check in
    de branch rules door de nieuwe checks (`ci / ...`) en verwijder de Tekton-webhook
    van de repository.
 

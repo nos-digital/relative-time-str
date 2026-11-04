@@ -1,6 +1,6 @@
 version: 2
 updates:
-  # Digest bumps for the pinned base images in runtime.Dockerfile.
+  # Digest bumps for the pinned base images in the Dockerfile.
   - package-ecosystem: docker
     directory: /
     schedule:

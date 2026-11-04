@@ -48,9 +48,9 @@ and understanding the overall organization and separation of concerns.
 ├── clippy.toml               # Additional clippy configuration
 ├── CODEOWNERS                # Github repository ownership configuration
 ├── deny.toml                 # Settings for cargo-deny
+├── Dockerfile                # Runtime image; CI adds the binaries (see section 4)
 ├── format_unstable.sh        # A helper script to format the source code with additional settings
 ├── README.md                 # Project overview and quick start guide
-├── runtime.Dockerfile        # Runtime image for GitHub Actions (CI adds the binaries)
 ├── rustfmt.toml              # Formatting settings used by rustfmt
 └── rustfmt-unstable.toml     # Unstable formatting settings used by rustfmt
 ```
@@ -129,3 +129,52 @@ To ensure no vulnerabilities creep into our codebases we use `cargo-deny`
 in CI together with the checked-in `Cargo.lock` to check for any CVEs (and
 some other settings).
 
+
+## 4. Container Image
+The `Dockerfile` only describes the runtime image. The reusable `rust-ci` workflow
+in [nos-github-actions](https://github.com/nos-digital/nos-github-actions#rust-ciyml)
+compiles the release binaries in nos-common-infra's Wolfi `rust-builder` image, puts
+them next to a copy of the `Dockerfile` and builds that. The build context therefore
+holds only the `Dockerfile` and the binaries, so it can't `COPY` other files from the
+repository; embed those in the binary instead (e.g. `include_bytes!`, askama).
+
+### Base image
+Chainguard's distroless `glibc-dynamic`: glibc, libgcc and CA certificates, but no
+shell, no package manager, and a non-root user. It comes from Wolfi, like the CI
+image, so the binaries match its glibc. It is pinned by digest; Dependabot
+(`.github/dependabot.yml`) proposes updates.
+
+No shell also means nothing in the deployment may `exec` a shell or coreutils (exec
+probes, `command:` scripts). The `preStop` delay in common-infra's Rust components
+uses Kubernetes' own `sleep` action for this reason. The process runs as non-root,
+so it can only write where a volume is mounted (logs go to `/var/log`).
+
+### Adding a C library
+Install it from Wolfi in an extra stage and copy its libraries over:
+
+```Dockerfile
+FROM cgr.dev/chainguard/wolfi-base:latest@sha256:<digest> AS libs
+RUN apk add --no-cache --initdb --root /rootfs \
+    --keys-dir /etc/apk/keys --repositories-file /etc/apk/repositories \
+    libvips
+
+FROM cgr.dev/chainguard/glibc-dynamic:latest@sha256:<digest>
+COPY --from=libs /rootfs/usr/lib/ /usr/lib/
+```
+
+The copied apk database (`usr/lib/apk`) lists the base image's own packages plus the
+new ones, so image scanners still see everything in the image. Keep both base images
+from the same Wolfi snapshot. nos-image-repository is a working example (libvips).
+
+If memory grows under many threads (tokio plus a C library's own threads), cap
+glibc's per-thread malloc arenas with `ENV MALLOC_ARENA_MAX=2`.
+
+### Building it locally
+Build the release binaries, put them next to a copy of the `Dockerfile` and build
+that directory:
+
+```shell
+$ cargo build --release
+$ mkdir -p /tmp/image && cp Dockerfile target/release/<binary> /tmp/image/
+$ docker build /tmp/image
+```
