@@ -62,13 +62,19 @@ pub trait RelativeTime: Clone {
     fn floor_seconds(self) -> Result<Self>;
 }
 
-pub fn parse_str<T: RelativeTime + RelativeTimeNow>(text: &str) -> Result<T> {
+pub fn parse_str<T>(text: &str) -> Result<T>
+where
+    T: RelativeTime + RelativeTimeNow,
+{
     // Only grab the now timestamps once, as this might be expensive, and we
     // want `now-now` to always resolve to `0`.
     parse_str_with_now(text, T::now())
 }
 
-pub fn parse_str_with_now<T: RelativeTime>(text: &str, now: T) -> Result<T> {
+pub fn parse_str_with_now<T>(text: &str, now: T) -> Result<T>
+where
+    T: RelativeTime,
+{
     if text.trim().trim_start_matches('+').trim_start() == "now" {
         // shortcut so we don't have to any more logic
         return Ok(now);
@@ -198,7 +204,7 @@ mod tests {
     }
 
     #[test]
-    fn test_leading_zeroes() {
+    fn leading_zeroes() {
         test_input_string!("now + 00015s", "2023-08-21T05:40:15");
     }
 
