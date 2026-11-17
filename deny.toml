@@ -40,9 +40,7 @@ license-files = [{ path = "LICENSE", hash = 0xbd0eed23 }]
 [advisories]
 yanked = "deny"
 unmaintained = "all"
-ignore = [
-    { id = "RUSTSEC-2026-0543", reason = "chrono will be replaced in a followup commit" },
-]
+ignore = []
 
 [bans]
 multiple-versions = "allow"
