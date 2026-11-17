@@ -129,101 +129,184 @@ pub fn parse_str_with_now<T: RelativeTime>(text: &str, now: T) -> Result<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{Local, NaiveDateTime, TimeZone};
+
+    const MINUTE: i64 = 60;
+    const HOUR: i64 = 60 * MINUTE;
+    const DAY: i64 = 24 * HOUR;
+    const WEEK: i64 = 7 * DAY;
+
+    /// Records what the parser asked for, so the tests don't depend on a
+    /// date-time library.
+    #[derive(Debug, Clone, Default, PartialEq, Eq)]
+    struct Mock {
+        months: i64,
+        seconds: i64,
+        floors: Vec<Unit>,
+    }
+
+    impl Mock {
+        fn offset(months: i64, seconds: i64) -> Self {
+            Self {
+                months,
+                seconds,
+                floors: Vec::new(),
+            }
+        }
+
+        fn floor(mut self, unit: Unit) -> Result<Self> {
+            self.floors.push(unit);
+            Ok(self)
+        }
+    }
+
+    impl RelativeTime for Mock {
+        fn add_months(mut self, value: u32) -> Result<Self> {
+            self.months += i64::from(value);
+            Ok(self)
+        }
+
+        fn add_seconds(mut self, value: u32) -> Result<Self> {
+            self.seconds += i64::from(value);
+            Ok(self)
+        }
+
+        fn sub_months(mut self, value: u32) -> Result<Self> {
+            self.months -= i64::from(value);
+            Ok(self)
+        }
+
+        fn sub_seconds(mut self, value: u32) -> Result<Self> {
+            self.seconds -= i64::from(value);
+            Ok(self)
+        }
+
+        fn floor_years(self) -> Result<Self> {
+            self.floor(Unit::Year)
+        }
+
+        fn floor_months(self) -> Result<Self> {
+            self.floor(Unit::Month)
+        }
+
+        fn floor_weeks(self) -> Result<Self> {
+            self.floor(Unit::Week)
+        }
+
+        fn floor_days(self) -> Result<Self> {
+            self.floor(Unit::Day)
+        }
+
+        fn floor_hours(self) -> Result<Self> {
+            self.floor(Unit::Hour)
+        }
+
+        fn floor_minutes(self) -> Result<Self> {
+            self.floor(Unit::Minute)
+        }
+
+        fn floor_seconds(self) -> Result<Self> {
+            self.floor(Unit::Second)
+        }
+    }
 
     macro_rules! test_input_string {
         ($input:expr, $output:expr) => {
-            let naive_datetime =
-                NaiveDateTime::parse_from_str("2023-08-21T05:40:00", "%Y-%m-%dT%H:%M:%S")
-                    .expect("input date time invalid");
-            let local_datetime = Local
-                .from_local_datetime(&naive_datetime)
-                .single()
-                .expect("input date time ambiguous");
-
-            let res = parse_str_with_now($input, local_datetime).expect("input date time invalid");
-
-            assert_eq!(format!("{}", res.format("%Y-%m-%dT%H:%M:%S")), $output);
+            let res = parse_str_with_now($input, Mock::default()).expect("input invalid");
+            assert_eq!(res, $output);
         };
     }
 
     #[test]
     fn literal_now() {
-        test_input_string!("now", "2023-08-21T05:40:00");
+        test_input_string!("now", Mock::default());
     }
 
     #[test]
     fn unary_now() {
-        test_input_string!("+now", "2023-08-21T05:40:00");
-        test_input_string!("  +    now", "2023-08-21T05:40:00");
+        test_input_string!("+now", Mock::default());
+        test_input_string!("  +    now", Mock::default());
     }
 
     #[test]
     fn now_plus_days() {
-        test_input_string!("now + 1d", "2023-08-22T05:40:00");
-        test_input_string!("now + 3d", "2023-08-24T05:40:00");
-        test_input_string!("now + 30d", "2023-09-20T05:40:00");
+        test_input_string!("now + 1d", Mock::offset(0, DAY));
+        test_input_string!("now + 3d", Mock::offset(0, 3 * DAY));
+        test_input_string!("now + 30d", Mock::offset(0, 30 * DAY));
     }
 
     #[test]
     fn now_minus_hours() {
-        test_input_string!("now - 2h", "2023-08-21T03:40:00");
+        test_input_string!("now - 2h", Mock::offset(0, -2 * HOUR));
     }
 
     #[test]
     fn now_plus_1w() {
-        test_input_string!("now + 1w", "2023-08-28T05:40:00");
+        test_input_string!("now + 1w", Mock::offset(0, WEEK));
     }
 
     #[test]
     fn now_plus_2mo() {
-        test_input_string!("now + 2M", "2023-10-21T05:40:00");
+        test_input_string!("now + 2M", Mock::offset(2, 0));
     }
 
     #[test]
     fn now_minus_1y() {
-        test_input_string!("now - 1y", "2022-08-21T05:40:00");
+        test_input_string!("now - 1y", Mock::offset(-12, 0));
     }
 
     #[test]
     fn now_with_multiple_offsets() {
-        test_input_string!("now + 1d - 2h + 30m", "2023-08-22T04:10:00");
+        test_input_string!(
+            "now + 1d - 2h + 30m",
+            Mock::offset(0, DAY - 2 * HOUR + 30 * MINUTE)
+        );
     }
 
     #[test]
     fn now_with_whitespace_variants() {
-        test_input_string!("now+1d", "2023-08-22T05:40:00");
-        test_input_string!("now    +    1d", "2023-08-22T05:40:00");
-        test_input_string!("now+   1d", "2023-08-22T05:40:00");
+        test_input_string!("now+1d", Mock::offset(0, DAY));
+        test_input_string!("now    +    1d", Mock::offset(0, DAY));
+        test_input_string!("now+   1d", Mock::offset(0, DAY));
     }
 
     #[test]
-    fn test_leading_zeroes() {
-        test_input_string!("now + 00015s", "2023-08-21T05:40:15");
+    fn leading_zeroes() {
+        test_input_string!("now + 00015s", Mock::offset(0, 15));
     }
 
     #[test]
     fn now_with_with_overflow_addition() {
-        test_input_string!("now + 90s", "2023-08-21T05:41:30");
-        test_input_string!("now + 61m", "2023-08-21T06:41:00");
+        test_input_string!("now + 90s", Mock::offset(0, 90));
+        test_input_string!("now + 61m", Mock::offset(0, 61 * MINUTE));
     }
 
     #[test]
     fn now_zero_offset() {
-        test_input_string!("now + 0s", "2023-08-21T05:40:00");
-        test_input_string!("now - 0d", "2023-08-21T05:40:00");
+        test_input_string!("now + 0s", Mock::default());
+        test_input_string!("now - 0d", Mock::default());
     }
 
     #[test]
     fn now_negative_offsets_combined() {
-        test_input_string!("now - 1d - 2h", "2023-08-20T03:40:00");
+        test_input_string!("now - 1d - 2h", Mock::offset(0, -DAY - 2 * HOUR));
     }
 
     #[test]
     fn complex_expression() {
         test_input_string!(
             "now + 1y - 1M + 3w - 2d + 4h - 30m + 15s",
-            "2024-08-09T09:10:15"
+            Mock::offset(11, 3 * WEEK - 2 * DAY + 4 * HOUR - 30 * MINUTE + 15)
+        );
+    }
+
+    #[test]
+    fn floor_after_offset() {
+        test_input_string!(
+            "now - 1d/d",
+            Mock {
+                floors: vec![Unit::Day],
+                ..Mock::offset(0, -DAY)
+            }
         );
     }
 }
