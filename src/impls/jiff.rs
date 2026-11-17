@@ -78,7 +78,7 @@ impl RelativeTime for ZonedDateTime {
     }
 
     fn floor_days(self) -> Result<Self> {
-        self.start_of_day().map_err(|_err| Error::InvalidTimestamp)
+        trunc(&self, Unit::Day)
     }
 
     fn floor_hours(self) -> Result<Self> {
@@ -182,6 +182,16 @@ mod tests {
         test_input_string!(now, "now/h", "2023-08-23T05:00:00+02:00[Europe/Amsterdam]");
         test_input_string!(now, "now/m", "2023-08-23T05:40:00+02:00[Europe/Amsterdam]");
         test_input_string!(now, "now/s", "2023-08-23T05:40:12+02:00[Europe/Amsterdam]");
+    }
+
+    #[test]
+    fn floor_day_without_midnight() {
+        // Sao Paulo skipped 2015-10-18T00:00 for DST, the day starts at 01:00.
+        test_input_string!(
+            "2015-10-18T12:00:00[America/Sao_Paulo]",
+            "now/d",
+            "2015-10-18T01:00:00-02:00[America/Sao_Paulo]"
+        );
     }
 
     #[test]
